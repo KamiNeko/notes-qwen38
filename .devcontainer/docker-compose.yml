@@ -1,0 +1,49 @@
+# Compose stack for the DEV CONTAINER only (used by .devcontainer/devcontainer.json).
+# The deployment stack lives in the repo-root docker-compose.yml.
+#
+# The `dev` service is intentionally IMAGE-ONLY (no `build:` section) and the
+# devcontainer.json declares NO `features`. Both are required to dodge a bug in
+# Dev Containers CLI 0.89.0 + Docker Compose v5 + Buildx >= 0.37.2, where the CLI
+# writes a generated Dockerfile outside the bake context and bake refuses it with
+# "additional privileges requested: --allow=fs.read=.../Dockerfile-with-features"
+# (https://github.com/devcontainers/cli/issues/1320).
+#
+# Build the image once before first open:  bash .devcontainer/build-tools-image.sh
+services:
+  dev:
+    image: strata-tools:latest
+    init: true
+    volumes:
+      - ..:/workspace:cached
+      - strata-tools-home:/home/vscode
+      - strata-node-modules:/workspace/frontend/node_modules
+    working_dir: /workspace
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=strata;Username=strata;Password=strata-dev-password"
+      Jwt__Key: "dev-only-change-me-please-use-a-long-random-secret-value"
+    depends_on:
+      db:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: strata
+      POSTGRES_USER: strata
+      POSTGRES_PASSWORD: strata-dev-password
+    volumes:
+      - strata-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U strata -d strata"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  strata-db-data:
+  strata-tools-home:
+  strata-node-modules:

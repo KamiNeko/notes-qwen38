@@ -1,0 +1,50 @@
+{
+  // .NET 10 SDK + Node.js 22 + PostgreSQL 17.
+  // Open the folder in VS Code (Dev Containers extension, works from WSL) and
+  // choose "Reopen in Container". Build the image first:
+  //   bash .devcontainer/build-tools-image.sh
+  //
+  // IMPORTANT: this config deliberately uses an image-only compose service and
+  // NO "features". With Dev Containers CLI 0.89.0 + Compose v5 + Buildx >= 0.37.2,
+  // either a `build:` section or any `features` makes the CLI inject a generated
+  // Dockerfile from /tmp, which bake then rejects with
+  // "additional privileges requested: --allow=fs.read=...".
+  // See https://github.com/devcontainers/cli/issues/1320
+  "name": "strata",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "DOTNET_ROOT": "/usr/share/dotnet",
+    "ASPNETCORE_ENVIRONMENT": "Development",
+    "ConnectionStrings__Default": "Host=db;Port=5432;Database=strata;Username=strata;Password=strata-dev-password",
+    "Jwt__Key": "dev-only-change-me-please-use-a-long-random-secret-value",
+    "VITE_PROXY_TARGET": "http://localhost:8080"
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "dotnet.defaultSolution": "backend/Strata.sln"
+      },
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "ckolkman.vscode-postgres",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [5173, 8080, 3000, 5432],
+  "portsAttributes": {
+    "5173": { "label": "Client (Vite)", "onAutoForward": "openBrowser" },
+    "8080": { "label": "API" },
+    "3000": { "label": "Frontend (nginx)" },
+    "5432": { "label": "PostgreSQL" }
+  }
+}

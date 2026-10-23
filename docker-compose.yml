@@ -1,0 +1,77 @@
+name: strata
+
+# Deployment stack (production-style). For day-to-day development use the dev
+# container instead: .devcontainer/devcontainer.json + .devcontainer/docker-compose.yml
+#
+#   Full stack:  docker compose up -d --build     (db + backend + frontend on :3000)
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — persistent storage for users, notes and tags
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-strata}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-strata-dev-password}
+      POSTGRES_DB: ${POSTGRES_DB:-strata}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-strata} -d ${POSTGRES_DB:-strata}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    ports:
+      - "5432:5432"
+
+  # ---------------------------------------------------------------------------
+  # Backend — .NET 10 minimal API (auth + notes + tags)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_HTTP_PORTS: ${ASPNETCORE_HTTP_PORTS:-8080}
+      ConnectionStrings__Default: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB:-strata};
+        Username=${POSTGRES_USER:-strata};Password=${POSTGRES_PASSWORD:-strata-dev-password};
+        Include Error Detail=true
+      Jwt__Key: ${JWT_KEY:-dev-only-change-me-please-use-a-long-random-secret-value}
+      Jwt__Issuer: ${JWT_ISSUER:-strata}
+      Jwt__Audience: ${JWT_AUDIENCE:-strata-web}
+      Jwt__ExpiresMinutes: ${JWT_EXPIRES_MINUTES:-120}
+      Cors__AllowedOrigins__0: http://localhost:5173
+      Cors__AllowedOrigins__1: http://localhost:3000
+      Cors__AllowedOrigins__2: http://localhost:8080
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  # ---------------------------------------------------------------------------
+  # Frontend — React + Vite build served by nginx, /api proxied to the backend
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  db-data:

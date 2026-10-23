@@ -1,0 +1,38 @@
+# --- .NET ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+!**/.vscode/tasks.json
+artifacts/
+TestResults/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Database ---
+pgdata/
+*.db
+*.db-shm
+*.db-wal
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+*.log
