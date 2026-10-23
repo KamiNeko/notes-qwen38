@@ -1,91 +1,92 @@
 # Strata
 
-A self-hosted notes app: take notes, store them persistently, see them all,
-filter and search. Dark UI with a sidebar tag cloud and a master–detail split,
-modeled on the provided `screenshot.png` reference.
+### A quieter place for everything you want to remember.
 
-- **Backend:** .NET 10 minimal API — auth (register/login/profile), notes CRUD,
-  tags with counts, full-text search. EF Core + PostgreSQL. JWT delivered as an
-  httpOnly cookie.
-- **Frontend:** React + Vite + Tailwind CSS v4 + shadcn/ui + TanStack Query +
-  React Router. Markdown notes with live preview.
-- **Infra:** dev container (VS Code Dev Containers), Docker images for backend
-  and frontend, docker-compose for both dev and deployment.
+Ideas arrive in the middle of everything. Strata gives them a home: a
+self-hosted notes workspace where you can write in Markdown, find a thought
+again with search and tags, and keep your notes on infrastructure you control.
 
-## Quick start (dev container — recommended)
+No sprawling workspace to maintain. No guessing where you saved that note.
+Just your notes, organized around the way you think.
 
-Prerequisites: Docker and VS Code with the **Dev Containers** extension.
+## Find your flow
+
+- **Write without friction.** Capture a thought in a clean editor, then switch
+  to a live Markdown preview when you want to see it take shape.
+- **Find it when you need it.** Search note titles and content, filter by tags,
+  and sort by recent updates, age, or title.
+- **Keep ideas connected.** Add lightweight tags as you write and browse them
+  from a sidebar with note counts.
+- **Make it yours.** Strata is self-hosted, with a PostgreSQL-backed API and a
+  responsive web app. Your deployment runs on infrastructure you manage.
+- **Keep your space personal.** Create an account and manage your notes in a
+  workspace scoped to you.
+
+## Get started
+
+The quickest path for development is the VS Code Dev Container. You’ll need
+Docker, VS Code, and the **Dev Containers** extension.
 
 ```bash
-# 1. Build the dev container image (once, and after Dockerfile changes)
+# Build the development image once (and again after Dockerfile changes)
 bash .devcontainer/build-tools-image.sh
-
-# 2. In VS Code: F1 -> "Dev Containers: Reopen in Container"
 ```
 
-On container start, `postCreateCommand` restores NuGet and npm packages. Then:
+In VS Code, run **Dev Containers: Reopen in Container** from the Command
+Palette. The container restores the NuGet and npm packages on creation. Then
+start the API and web app in separate terminals:
 
 ```bash
-cd backend && dotnet run     # API on http://localhost:8080 (auto-applies EF migrations)
-cd frontend && npm run dev   # Vite on http://localhost:5173 (proxies /api -> :8080)
+cd backend && dotnet run
+cd frontend && npm run dev
 ```
 
-Open http://localhost:5173, create an account, start taking notes.
+Open [http://localhost:5173](http://localhost:5173), create an account, and
+write your first note.
 
-> **Why the unusual devcontainer layout?** With Dev Containers CLI 0.89.0 +
-> Docker Compose v5 + Buildx ≥ 0.37.2, a compose service with a `build:`
-> section (or any `features`) makes the CLI inject a generated Dockerfile from
-> `/tmp`, which bake rejects with *"additional privileges requested:
-> --allow=fs.read=…"* ([devcontainers/cli#1320](https://github.com/devcontainers/cli/issues/1320)).
-> The dev service is therefore image-only and features are avoided; the image
-> is built with plain `docker build` via the script above.
+### Run the full stack with Docker
 
-## Full stack with Docker (no dev container)
+For a deployment-style setup without the dev container, you’ll need Docker
+Compose:
 
 ```bash
-cp .env.example .env          # then edit secrets (JWT_KEY!)
-docker compose up -d --build  # db + backend + frontend
-# app: http://localhost:3000  (nginx serves the SPA and proxies /api)
+cp .env.example .env
+# Edit .env and set a strong JWT_KEY before starting the app.
+docker compose up -d --build
 ```
 
-## API overview
+Visit [http://localhost:3000](http://localhost:3000). Docker Compose starts the
+web app, API, and PostgreSQL database together.
 
-| Method | Path                | Description                              |
-| ------ | ------------------- | ---------------------------------------- |
-| POST   | `/api/auth/register`| Create account, sets auth cookie         |
-| POST   | `/api/auth/login`   | Sign in, sets auth cookie                |
-| POST   | `/api/auth/logout`  | Clear cookie                             |
-| GET    | `/api/auth/me`      | Current user                             |
-| GET    | `/api/notes`        | List/search/filter (`q`, `tag`, `sort`)  |
-| POST   | `/api/notes`        | Create note (title, content, tags)       |
-| GET    | `/api/notes/{id}`   | Get one note                             |
-| PUT    | `/api/notes/{id}`   | Update note (tags replaced)              |
-| DELETE | `/api/notes/{id}`   | Delete note (soft)                       |
-| GET    | `/api/tags`         | Tag cloud with per-tag note counts       |
-| GET    | `/api/health`       | Liveness                                 |
+## What’s inside
 
-Auth: JWT in an httpOnly `strata_auth` cookie (SameSite=Lax). The frontend
-always talks to the API same-origin (Vite proxy in dev, nginx in Docker), so
-no CORS is needed in the browser path.
+Strata is built to stay simple to run and familiar to work on:
+
+| Layer | Technology |
+| --- | --- |
+| Web app | React, Vite, Tailwind CSS, shadcn/ui |
+| API | .NET 10 minimal API |
+| Data | PostgreSQL and Entity Framework Core |
+| Sign-in | JWT in an httpOnly cookie |
+| Local development | VS Code Dev Containers and Docker Compose |
+
+The API supports account registration and login, note creation and editing,
+tag management, search, sorting, and health checks. The browser talks to the
+API on the same origin: Vite proxies requests during development, and nginx
+does so in the Docker deployment.
+
+## Make it your own
+
+Strata is designed for people who want a focused place for notes and the
+freedom to run it themselves. Start it locally, explore the code, and shape it
+around your workflow.
 
 ## Project layout
 
+```text
+.devcontainer/        dev container config and image build script
+backend/              .NET API, data model, and migrations
+frontend/             React app and nginx configuration
+docker-compose.yml    deployment stack
+.env.example          environment template for Docker Compose
 ```
-.devcontainer/        dev container config + image build script
-backend/              .NET 10 API (Dockerfile, Strata.sln, src/Strata.Api)
-  src/Strata.Api/     Program.cs, Endpoints/, Data/ (EF Core), Services/
-frontend/             React app (Dockerfile, nginx.conf, src/)
-  src/components/ui/  shadcn primitives
-  src/pages/          Login / Register / Notes
-docker-compose.yml    deployment stack (db + backend + frontend)
-.env.example          copy to .env for the deployment stack
-```
-
-## Notes on behavior
-
-- Notes are Markdown; the list shows a plain-text excerpt and relative times.
-- Tags are per-user, created on demand, shown in the sidebar with counts.
-- Search matches title and content (case-insensitive `ILIKE`).
-- Notes are soft-deleted (`deleted_at`), so accidental deletes never lose data.
-- EF migrations are applied automatically in Development; run
-  `dotnet ef database update` (via `dotnet dotnet-ef`) for other environments.
