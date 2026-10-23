@@ -21,7 +21,8 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> Register(
-        RegisterRequest request, StrataDbContext db, TokenService tokens, HttpContext http)
+        RegisterRequest request, StrataDbContext db, TokenService tokens, HttpContext http,
+        IHostEnvironment environment, IConfiguration configuration)
     {
         var email = request.Email?.Trim().ToLowerInvariant();
         var displayName = request.DisplayName?.Trim();
@@ -44,11 +45,13 @@ public static class AuthEndpoints
         db.Users.Add(user);
         await db.SaveChangesAsync();
 
-        return IssueCookie(user, tokens, http, StatusCodes.Status201Created);
+        return IssueCookie(user, tokens, http, StatusCodes.Status201Created,
+            GetSecureCookieSetting(http, environment, configuration));
     }
 
     private static async Task<IResult> Login(
-        LoginRequest request, StrataDbContext db, TokenService tokens, HttpContext http)
+        LoginRequest request, StrataDbContext db, TokenService tokens, HttpContext http,
+        IHostEnvironment environment, IConfiguration configuration)
     {
         var email = request.Email?.Trim().ToLowerInvariant();
         var password = request.Password;
@@ -63,12 +66,14 @@ public static class AuthEndpoints
             return ValidationHelper.Problem([("credentials", "Invalid email or password.")]);
         }
 
-        return IssueCookie(user, tokens, http, StatusCodes.Status200OK);
+        return IssueCookie(user, tokens, http, StatusCodes.Status200OK,
+            GetSecureCookieSetting(http, environment, configuration));
     }
 
-    private static IResult Logout(HttpContext http)
+    private static IResult Logout(HttpContext http, IHostEnvironment environment, IConfiguration configuration)
     {
-        http.Response.Cookies.Delete(AuthConstants.AuthCookieName, CookieFactory.Build(http));
+        http.Response.Cookies.Delete(AuthConstants.AuthCookieName,
+            CookieFactory.Build(GetSecureCookieSetting(http, environment, configuration)));
         return Results.NoContent();
     }
 
@@ -85,25 +90,29 @@ public static class AuthEndpoints
         int.Parse(http.User.FindFirstValue(AuthConstants.UserIdClaim)!);
 
     private static IResult IssueCookie(
-        AppUser user, TokenService tokens, HttpContext http, int statusCode)
+        AppUser user, TokenService tokens, HttpContext http, int statusCode, bool secureCookie)
     {
         var (token, expires) = tokens.IssueToken(user);
-        http.Response.Cookies.Append(AuthConstants.AuthCookieName, token, CookieFactory.Build(http, expires));
+        http.Response.Cookies.Append(AuthConstants.AuthCookieName, token,
+            CookieFactory.Build(secureCookie, expires));
         // Results.Json uses the configured request serializer (camelCase).
         return Results.Json(new { user = ToDto(user) }, statusCode: statusCode);
     }
 
     private static UserDto ToDto(AppUser u) => new(u.Id, u.Email, u.DisplayName, u.CreatedAt);
+
+    private static bool GetSecureCookieSetting(
+        HttpContext http, IHostEnvironment environment, IConfiguration configuration) =>
+        http.Request.IsHttps || configuration.GetValue("Auth:CookieSecure", !environment.IsDevelopment());
 }
 
 public static class CookieFactory
 {
-    public static CookieOptions Build(HttpContext http, DateTimeOffset? expires = null) => new()
+    public static CookieOptions Build(bool secure, DateTimeOffset? expires = null) => new()
     {
         HttpOnly = true,
         SameSite = SameSiteMode.Lax,
-        // Works over http in development, automatically upgrades to Secure over https.
-        Secure = http.Request.IsHttps || http.Request.Headers["X-Forwarded-Proto"] == "https",
+        Secure = secure,
         Path = "/",
         Expires = expires ?? DateTimeOffset.UtcNow.AddDays(30),
     };

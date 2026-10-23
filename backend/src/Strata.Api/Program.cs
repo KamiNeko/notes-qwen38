@@ -14,9 +14,27 @@ var builder = WebApplication.CreateBuilder(args);
 // Options / DI
 // ---------------------------------------------------------------------------
 var jwtSection = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwtSection["Key"];
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException("Jwt:Key is not configured.");
+}
+
+if (System.Text.Encoding.UTF8.GetByteCount(jwtKey) < 32)
+{
+    throw new InvalidOperationException("Jwt:Key must be at least 32 bytes.");
+}
+
+if (jwtKey == JwtOptions.DevelopmentKey
+    && !(builder.Environment.IsDevelopment()
+         && builder.Configuration.GetValue<bool>("Jwt:AllowInsecureDevelopmentKey")))
+{
+    throw new InvalidOperationException("The development JWT key is permitted only with explicit development opt-in.");
+}
+
 var jwtOptions = new JwtOptions
 {
-    Key = jwtSection["Key"] ?? throw new InvalidOperationException("Jwt:Key is not configured."),
+    Key = jwtKey,
     Issuer = jwtSection["Issuer"] ?? "strata",
     Audience = jwtSection["Audience"] ?? "strata-web",
     ExpiresMinutes = int.TryParse(jwtSection["ExpiresMinutes"], out var m) ? m : 120,

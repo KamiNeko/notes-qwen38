@@ -51,12 +51,22 @@ Compose:
 
 ```bash
 cp .env.example .env
-# Edit .env and set a strong JWT_KEY before starting the app.
+# Set unique values for POSTGRES_PASSWORD and JWT_KEY in .env.
+# Generate each with:  openssl rand -hex 32
 docker compose up -d --build
 ```
 
+Compose requires both values; the database health check also rejects the
+development password and passwords shorter than 32 characters.
+
 Visit [http://localhost:3000](http://localhost:3000). Docker Compose starts the
 web app, API, and PostgreSQL database together.
+
+The web port is bound to loopback, and the API and database are not published
+on host ports. For access beyond the host, put a trusted TLS-terminating reverse
+proxy in front of `127.0.0.1:3000`; do not expose the HTTP port directly to an
+untrusted network. Auth cookies are Secure by default outside Development. Set
+`AUTH_COOKIE_SECURE=false` only when local HTTP development requires it.
 
 ## What’s inside
 

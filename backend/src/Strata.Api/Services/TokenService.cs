@@ -9,6 +9,8 @@ namespace Strata.Api.Services;
 
 public sealed class JwtOptions
 {
+    public const string DevelopmentKey = "dev-only-change-me-please-use-a-long-random-secret-value";
+
     public string Key { get; init; } = "";
     public string Issuer { get; init; } = "strata";
     public string Audience { get; init; } = "strata-web";
